@@ -2,51 +2,54 @@ package main
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 // Employee represents the employee model based on the table structure
 type Employee struct {
-	ID       uuid.UUID `json:"id" gorm:"type:uuid;default:uuid_generate_v4()"`
+	ID       uuid.UUID `json:"id" gorm:"type:char(36);primaryKey"`
 	Name     string    `json:"name" gorm:"type:text;not null"`
 	Position string    `json:"position" gorm:"type:text;not null"`
 	Salary   float64   `json:"salary" gorm:"type:float;not null"`
 }
 
 var db *gorm.DB
-var err error
 
-// ConnectDB initializes the PostgreSQL connection
+// ConnectDB initializes the TiDB connection
 func ConnectDB() {
-	err := godotenv.Load()
-	if err != nil {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, proceeding with system environment variables")
 	}
-	// Use environment variables or hardcode your PostgreSQL connection string
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		os.Getenv("DB_HOST"),
+
+	// Use environment variables to form the TiDB connection string
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?tls=true&charset=utf8mb4&parseTime=True",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
+		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
+		os.Getenv("DB_NAME"),
 	)
+	fmt.Println(dsn)
 
-	// Connect to the PostgreSQL database using GORM
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Connect to the TiDB database using GORM
+	var err error
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
 	// Auto-migrate the Employee model to create the table if it doesn't exist
-	db.AutoMigrate(&Employee{})
+	if err := db.AutoMigrate(&Employee{}); err != nil {
+		log.Fatal("Failed to auto-migrate:", err)
+	}
 }
 
 // CreateEmployee handles creating a new employee
@@ -59,10 +62,11 @@ func CreateEmployee(c *gin.Context) {
 		return
 	}
 
-	// Create a new employee record
+	// Assign a new UUID to the employee ID
 	employee.ID = uuid.New()
-	db.Create(&employee)
 
+	// Create a new employee record
+	db.Create(&employee)
 	c.JSON(http.StatusOK, employee)
 }
 
@@ -84,7 +88,6 @@ func GetEmployee(c *gin.Context) {
 func GetEmployees(c *gin.Context) {
 	var employees []Employee
 	db.Find(&employees)
-
 	c.JSON(http.StatusOK, employees)
 }
 
@@ -127,7 +130,7 @@ func DeleteEmployee(c *gin.Context) {
 }
 
 func main() {
-	// Initialize PostgreSQL connection
+	// Initialize TiDB connection
 	ConnectDB()
 
 	// Create a new Gin router

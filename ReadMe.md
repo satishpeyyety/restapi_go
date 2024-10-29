@@ -17,3 +17,15 @@ position TEXT NOT NULL,
 salary FLOAT NOT NULL
 );
 ```
+PostGre needs PostGreSQL driver.
+## Setup table in TIDBCloud
+```
+CREATE TABLE
+`employees` (
+`id` CHAR(36) PRIMARY KEY DEFAULT(UUID()),
+`name` TEXT NOT NULL,
+`position` TEXT NOT NULL,
+`salary` FLOAT NOT NULL
+);
+```
+TiDB uses MySQL driver.
