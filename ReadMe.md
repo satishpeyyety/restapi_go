@@ -29,3 +29,6 @@ CREATE TABLE
 );
 ```
 TiDB uses MySQL driver.
+
+## Run testcases
+go test -v
